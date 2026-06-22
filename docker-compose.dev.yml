@@ -1,0 +1,31 @@
+services:
+  openbimrl-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: openbimrl-dev
+    working_dir: /workspace/openbimrl
+    command: sleep infinity
+    volumes:
+      - .:/workspace/openbimrl:cached
+      - ./.m2:/home/vscode/.m2
+      - openbimrl-node-modules:/workspace/openbimrl/OpenBimRL-CreatorTool/webapp/node_modules
+    environment:
+      USER_NAME: ${USER_NAME:-}
+      ACCESS_TOKEN: ${ACCESS_TOKEN:-}
+    ports:
+      - "8000:8000"
+      - "8080:8080"
+    devices:
+      - /dev/kfd:/dev/kfd
+      - /dev/dri:/dev/dri
+    security_opt:
+      - seccomp=unconfined
+    group_add:
+      - video
+#      - render
+    init: true
+    tty: true
+
+volumes:
+  openbimrl-node-modules:

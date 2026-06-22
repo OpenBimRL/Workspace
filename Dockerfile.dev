@@ -1,0 +1,34 @@
+FROM rocm/dev-ubuntu-22.04:7.1.1 AS rocm-llvm
+FROM mcr.microsoft.com/devcontainers/java:1-21-bookworm
+
+USER root
+
+ARG ENABLE_ROCM_OFFLOAD=OFF
+ARG ROCM_OFFLOAD_ARCH=
+
+# Copy ROCm LLVM toolchain (clang + OpenMP runtime).
+COPY --from=rocm-llvm /opt/rocm-7.1.1/ /opt/rocm/
+
+RUN rm -f /etc/apt/sources.list.d/yarn.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates git inotify-tools maven nodejs npm \
+        make cmake \
+        xfonts-scalable \
+        libocct-data-exchange-dev libocct-draw-dev libocct-foundation-dev \
+        libocct-modeling-algorithms-dev libocct-modeling-data-dev \
+        libocct-ocaf-dev libocct-visualization-dev \
+        libmpfr-dev libboost-all-dev libhdf5-dev libgmp-dev libxml2-dev \
+    && ln -sf /opt/rocm/llvm/bin/clang /usr/local/bin/clang \
+    && ln -sf /opt/rocm/llvm/bin/clang++ /usr/local/bin/clang++ \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV ROCM_PATH=/opt/rocm
+ENV PATH=${ROCM_PATH}/llvm/bin:${PATH}
+ENV CC=${ROCM_PATH}/llvm/bin/clang
+ENV CXX=${ROCM_PATH}/llvm/bin/clang++
+ENV OPENBIMRL_ENABLE_ROCM_OFFLOAD=${ENABLE_ROCM_OFFLOAD}
+ENV OPENBIMRL_ROCM_OFFLOAD_ARCH=${ROCM_OFFLOAD_ARCH}
+
+USER vscode

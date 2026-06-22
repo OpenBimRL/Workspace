@@ -1,0 +1,20 @@
+{
+  "name": "OpenBIMRL Monorepo Dev",
+  "dockerComposeFile": [
+    "../docker-compose.dev.yml"
+  ],
+  "service": "openbimrl-dev",
+  "workspaceFolder": "/workspace/openbimrl",
+  "remoteUser": "vscode",
+  "forwardPorts": [8000, 8080],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "vscjava.vscode-java-pack",
+        "vmware.vscode-boot-dev-pack",
+        "ms-vscode.vscode-typescript-next",
+        "Vue.volar"
+      ]
+    }
+  }
+}
