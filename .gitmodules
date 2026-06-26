@@ -1,0 +1,9 @@
+[submodule "OpenBimRL-CreatorTool"]
+	path = OpenBimRL-CreatorTool
+	url = https://github.com/OpenBimRL/OpenBimRL-CreatorTool.git
+[submodule "OpenBimRL-Engine"]
+	path = OpenBimRL-Engine
+	url = https://github.com/OpenBimRL/OpenBimRL-Engine.git
+[submodule "OpenBimRL-Engine-REST"]
+	path = OpenBimRL-Engine-REST
+	url = https://github.com/OpenBimRL/OpenBimRL-Engine-REST.git

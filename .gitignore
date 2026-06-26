@@ -1,3 +1,4 @@
 /.m2/
 !/readme.md
 /*.md
+/*.vsix
