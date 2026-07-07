@@ -4,7 +4,10 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MAVEN_LOCAL_REPO="${ROOT_DIR}/.m2/repository"
-MVN_COMMON_ARGS=(-Dmaven.repo.local="${MAVEN_LOCAL_REPO}")
+MVN_COMMON_ARGS=(
+  -Dmaven.repo.local="${MAVEN_LOCAL_REPO}"
+  -Dkotlin.compiler.daemon=false
+)
 export MAVEN_USER_HOME="${ROOT_DIR}/.m2"
 
 ENGINE_DIR="${ROOT_DIR}/OpenBimRL-Engine"
@@ -12,16 +15,19 @@ REST_DIR="${ROOT_DIR}/OpenBimRL-Engine-REST"
 WEBAPP_DIR="${ROOT_DIR}/OpenBimRL-CreatorTool/webapp"
 OPENBIMRL_ENABLE_ROCM_OFFLOAD="OFF"
 OPENBIMRL_ROCM_OFFLOAD_ARCH=""
-CLEAN_CACHE="OFF"
+CLEAN_MAVEN="OFF"
+CLEAN_ALL="OFF"
 
 print_usage() {
   cat <<'EOF'
-Usage: ./scripts/dev-start.sh [--gpu] [--gpu-arch <gfx-arch>] [--clean]
+Usage: ./scripts/dev-start.sh [--gpu] [--gpu-arch <gfx-arch>] [--clean] [--clean-all]
 
 Options:
   --gpu                    Enable ROCm OpenMP offloading for the Engine build.
   --gpu-arch <gfx-arch>    Set explicit ROCm offload arch (e.g. gfx1100).
-  --clean                  Remove local build/dependency caches before startup.
+  --clean                  Remove the local Maven repository cache before startup.
+  --clean-all              Also remove JVM build outputs, frontend cache, and the
+                           native CMake cache (includes --clean).
   -h, --help               Show this help.
 EOF
 }
@@ -43,7 +49,11 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     --clean)
-      CLEAN_CACHE="ON"
+      CLEAN_MAVEN="ON"
+      shift
+      ;;
+    --clean-all)
+      CLEAN_ALL="ON"
       shift
       ;;
     -h|--help)
@@ -128,6 +138,9 @@ build_engine() {
     cd "${ENGINE_DIR}"
     export OPENBIMRL_ENABLE_ROCM_OFFLOAD
     export OPENBIMRL_ROCM_OFFLOAD_ARCH
+    export OPENBIMRL_IFCOPENSHELL_PREFIX
+    export OPENBIMRL_USE_PREBUILT_IFCOPENSHELL
+    export LD_LIBRARY_PATH="${OPENBIMRL_IFCOPENSHELL_PREFIX}/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
     # Use one canonical Maven lifecycle invocation to avoid mixed execution modes
     # (e.g. direct default-cli goal + lifecycle compile), which can cause unstable
     # Kotlin/Java ordering in clean builds.
@@ -140,6 +153,7 @@ start_rest() {
   echo "Starting OpenBIMRL backend (Spring Boot dev mode) ..."
   (
     cd "${REST_DIR}"
+    export LD_LIBRARY_PATH="${OPENBIMRL_IFCOPENSHELL_PREFIX}/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
     SPRING_PROFILES_ACTIVE=dev sh ./mvnw "${MVN_COMMON_ARGS[@]}" -s maven-settings.xml spring-boot:run
   ) &
   BACKEND_PID=$!
@@ -214,6 +228,9 @@ require_command mvn
 require_command inotifywait
 require_command npm
 require_command git
+require_command python3
+require_command cmake
+require_command ninja
 
 cleanup_stale_processes() {
   # Old runs can keep background processes alive in the same container.
@@ -221,12 +238,59 @@ cleanup_stale_processes() {
   pkill -f 'vite --host 0.0.0.0 --port 8000' 2>/dev/null || true
 }
 
-clean_all_cache() {
-  echo "Cleaning local caches (Maven, build outputs, frontend cache) ..."
+clean_maven_cache() {
+  echo "Cleaning local Maven cache ..."
   rm -rf "${MAVEN_LOCAL_REPO}"
-  rm -rf "${ENGINE_DIR}/target" "${ENGINE_DIR}/build"
+}
+
+clean_all_cache() {
+  echo "Cleaning Maven cache, JVM build outputs, frontend cache, and native CMake cache ..."
+  clean_maven_cache
+  rm -rf "${ENGINE_DIR}/target"
   rm -rf "${REST_DIR}/target"
   rm -rf "${WEBAPP_DIR}/dist" "${WEBAPP_DIR}/node_modules/.vite"
+  make -C "${ENGINE_DIR}" clean
+}
+
+LOCAL_IFCOPENSHELL_PREFIX="${ROOT_DIR}/.cache/openbimrl/ifcopenshell"
+
+ifcopenshell_runtime_ok() {
+  local prefix="$1"
+  local kernel="${prefix}/lib/libgeometry_kernel_opencascade.so"
+  [[ -f "${kernel}" ]] || return 1
+  LD_LIBRARY_PATH="${prefix}/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" \
+    python3 -c "import ctypes; ctypes.CDLL('${kernel}')" >/dev/null 2>&1
+}
+
+ensure_ifcopenshell_runtime() {
+  local preferred_prefix="${OPENBIMRL_IFCOPENSHELL_PREFIX:-/opt/ifcopenshell}"
+
+  if ifcopenshell_runtime_ok "${preferred_prefix}"; then
+    export OPENBIMRL_IFCOPENSHELL_PREFIX="${preferred_prefix}"
+    export OPENBIMRL_USE_PREBUILT_IFCOPENSHELL=ON
+    return
+  fi
+
+  if [[ "${preferred_prefix}" != "${LOCAL_IFCOPENSHELL_PREFIX}" ]] \
+      && ifcopenshell_runtime_ok "${LOCAL_IFCOPENSHELL_PREFIX}"; then
+    echo "Using compatible IfcOpenShell at ${LOCAL_IFCOPENSHELL_PREFIX}"
+    export OPENBIMRL_IFCOPENSHELL_PREFIX="${LOCAL_IFCOPENSHELL_PREFIX}"
+    export OPENBIMRL_USE_PREBUILT_IFCOPENSHELL=ON
+    make -C "${ENGINE_DIR}" clean || true
+    return
+  fi
+
+  echo "IfcOpenShell at ${preferred_prefix} is incompatible with this system's OpenCASCADE."
+  echo "Building a compatible copy into ${LOCAL_IFCOPENSHELL_PREFIX} (first run can take several minutes) ..."
+  OPENBIMRL_IFCOPENSHELL_BUILD_PREFIX="${LOCAL_IFCOPENSHELL_PREFIX}" bash "${ROOT_DIR}/scripts/build-ifcopenshell.sh"
+  export OPENBIMRL_IFCOPENSHELL_PREFIX="${LOCAL_IFCOPENSHELL_PREFIX}"
+  export OPENBIMRL_USE_PREBUILT_IFCOPENSHELL=ON
+  make -C "${ENGINE_DIR}" clean || true
+}
+
+configure_native_runtime() {
+  ensure_ifcopenshell_runtime
+  export LD_LIBRARY_PATH="${OPENBIMRL_IFCOPENSHELL_PREFIX}/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 }
 
 ensure_engine_dependencies() {
@@ -275,10 +339,13 @@ else
   echo "GPU offloading disabled (OpenMP uses CPU cores only)."
 fi
 cleanup_stale_processes
-if [[ "${CLEAN_CACHE}" == "ON" ]]; then
+if [[ "${CLEAN_ALL}" == "ON" ]]; then
   clean_all_cache
+elif [[ "${CLEAN_MAVEN}" == "ON" ]]; then
+  clean_maven_cache
 fi
 ensure_engine_dependencies
+configure_native_runtime
 build_engine
 
 start_rest
