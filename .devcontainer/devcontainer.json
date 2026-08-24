@@ -7,12 +7,22 @@
   "workspaceFolder": "/workspace/openbimrl",
   "remoteUser": "vscode",
   "forwardPorts": [8000, 8080],
+  "build": {
+    "args": {
+      "DOCKER_GID": "131"
+    }
+  },
+  "remoteEnv": {
+    "DOCKER_HOST": "unix:///var/run/docker.sock"
+  },
   "customizations": {
     "vscode": {
       "extensions": [
         "vmware.vscode-boot-dev-pack",
         "ms-vscode.vscode-typescript-next",
-        "Vue.volar"
+        "Vue.volar",
+        "bazelbuild.vscode-bazel",
+        "/tmp/kotlin-server.vsix"
       ]
     }
   }

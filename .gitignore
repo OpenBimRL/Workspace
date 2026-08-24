@@ -3,3 +3,6 @@
 /*.md
 /*.vsix
 /.cache
+/bazel-*
+user.bazelrc
+CMakeFiles/

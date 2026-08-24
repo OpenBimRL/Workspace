@@ -1,0 +1,17 @@
+# OpenBimRL monorepo root — Bazel 9 + bzlmod only (no WORKSPACE.bazel).
+common --enable_bzlmod
+common --noenable_workspace
+
+# Inherit Engine Linux/DevContainer defaults (Java 17/21, native CC, offload configs).
+# Engine registers //:kotlin_toolchain relative to the main workspace; root BUILD
+# defines the same target. Also register the Engine module toolchain explicitly.
+try-import %workspace%/OpenBimRL-Engine/.bazelrc
+
+build --extra_toolchains=@openbimrl_engine//:kotlin_toolchain
+test --extra_toolchains=@openbimrl_engine//:kotlin_toolchain
+
+# REST (Kotlin 21 / Spring Boot) — module registers its own toolchain when built
+# standalone; from the Workspace root, use the REST module toolchain for //:rest.
+build:rest --extra_toolchains=@openbimrl_engine_rest//:kotlin_toolchain
+run:rest --extra_toolchains=@openbimrl_engine_rest//:kotlin_toolchain
+test:rest --extra_toolchains=@openbimrl_engine_rest//:kotlin_toolchain

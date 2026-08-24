@@ -1,0 +1,14 @@
+# Paths ignored by Bazel package loading (not the same as .gitignore).
+.m2
+.cache
+CMakeFiles
+
+# Engine is consumed only via @openbimrl_engine (local_path_override). Ignoring
+# prevents loading Engine BUILD files as //OpenBimRL-Engine:... packages (those
+# labels use //third_party relative to the Engine module).
+OpenBimRL-Engine
+
+# Nested install / build outputs
+OpenBimRL-CreatorTool/webapp/node_modules
+OpenBimRL-CreatorTool/node_modules
+OpenBimRL-CreatorTool/webapp/dist

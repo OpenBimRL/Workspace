@@ -1,6 +1,19 @@
 # syntax=docker/dockerfile:1
 
-# Prebuild IfcOpenShell once with ROCm clang (same toolchain as OpenBIMRL_Native).
+# Monorepo DevContainer image (GPU workstation). Ships ROCm LLVM for interactive
+# / --config=rocm_offload work, and system clang + libomp so Engine/native Bazel
+# defaults (/usr/bin/clang) match llvm.dockerfile.
+#
+# Docker: CLI + compose/buildx plugins talk to the host daemon via
+# /var/run/docker.sock (see docker-compose.dev.yml). Rebuild after changing
+# DOCKER_GID if `docker ps` fails with permission denied.
+#
+# Image roles (Engine production images live under OpenBimRL-Engine/):
+#   llvm.dockerfile  — CPU / default clang + libomp
+#   rocm.dockerfile  — AMD ROCm OpenMP offload
+#   nvcc.dockerfile  — NVIDIA CUDA toolkit (offload WIP)
+#   Dockerfile.dev   — this file: local DevContainer with ROCm + IfcOpenShell
+
 FROM rocm/dev-ubuntu-24.04:7.1.1 AS rocm-llvm
 
 FROM debian:bookworm-slim AS ifcos-build
@@ -8,7 +21,8 @@ FROM debian:bookworm-slim AS ifcos-build
 ARG IFCOPENSHELL_GIT_TAG=eafa158ca0cd5ba2ca22b5e588b0375cab2efbce
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        ca-certificates git cmake ninja-build g++ \
+        ca-certificates git cmake ninja-build \
+        clang libomp-dev \
         libboost-all-dev \
         libocct-foundation-dev libocct-modeling-algorithms-dev libocct-modeling-data-dev \
         libocct-ocaf-dev libocct-visualization-dev libocct-data-exchange-dev \
@@ -20,6 +34,8 @@ RUN git clone https://github.com/IfcOpenShell/IfcOpenShell.git /src \
     && git checkout "${IFCOPENSHELL_GIT_TAG}"
 
 RUN cmake -G Ninja -S /src/cmake -B /build \
+        -DCMAKE_C_COMPILER=/usr/bin/clang \
+        -DCMAKE_CXX_COMPILER=/usr/bin/clang++ \
         -DCMAKE_INSTALL_PREFIX=/opt/ifcopenshell \
         -DCMAKE_BUILD_TYPE=Release \
         -DOCC_INCLUDE_DIR=/usr/include/opencascade \
@@ -46,6 +62,11 @@ USER root
 
 ARG ENABLE_ROCM_OFFLOAD=OFF
 ARG ROCM_OFFLOAD_ARCH=
+ARG BAZELISK_VERSION=1.29.0
+ARG KOTLIN_SERVER_BUILD=262.9593.0
+ARG KOTLIN_SERVER_VERSION=0.0.6
+# Host docker.sock group (override via docker-compose build.args / DOCKER_GID env).
+ARG DOCKER_GID=999
 
 COPY --from=rocm-llvm /opt/rocm-7.1.1/ /opt/rocm/
 COPY --from=ifcos-build /opt/ifcopenshell /opt/ifcopenshell
@@ -53,22 +74,44 @@ COPY --from=ifcos-build /opt/ifcopenshell /opt/ifcopenshell
 RUN rm -f /etc/apt/sources.list.d/yarn.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
-        ca-certificates git inotify-tools maven nodejs npm \
+        ca-certificates curl git inotify-tools maven nodejs npm \
         make cmake ninja-build ccache \
+        clang libomp-dev libomp5 \
         xfonts-scalable \
         libocct-data-exchange-dev libocct-draw-dev libocct-foundation-dev \
         libocct-modeling-algorithms-dev libocct-modeling-data-dev \
         libocct-ocaf-dev libocct-visualization-dev \
         libmpfr-dev libboost-all-dev libhdf5-dev libgmp-dev libxml2-dev libeigen3-dev \
-    && ln -sf /opt/rocm/llvm/bin/clang /usr/local/bin/clang \
-    && ln -sf /opt/rocm/llvm/bin/clang++ /usr/local/bin/clang++ \
+    && install -m 0755 -d /etc/apt/keyrings \
+    && curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc \
+    && chmod a+r /etc/apt/keyrings/docker.asc \
+    && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian bookworm stable" \
+         > /etc/apt/sources.list.d/docker.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        docker-ce-cli docker-compose-plugin docker-buildx-plugin \
+    && ln -sf /opt/rocm/llvm/bin/clang /usr/local/bin/rocm-clang \
+    && ln -sf /opt/rocm/llvm/bin/clang++ /usr/local/bin/rocm-clang++ \
+    && curl -fsSL -o /usr/local/bin/bazelisk \
+         "https://github.com/bazelbuild/bazelisk/releases/download/v${BAZELISK_VERSION}/bazelisk-linux-amd64" \
+    && chmod +x /usr/local/bin/bazelisk \
+    && ln -sf /usr/local/bin/bazelisk /usr/local/bin/bazel \
+    && (getent group docker >/dev/null 2>&1 && groupmod -g "${DOCKER_GID}" docker || groupadd -g "${DOCKER_GID}" docker) \
+    && usermod -aG docker vscode \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# JetBrains Kotlin LS VSIX for Dev Containers (installed via .devcontainer/devcontainer.json).
+ADD "https://download-cdn.jetbrains.com/language-server/kotlin-server/${KOTLIN_SERVER_BUILD}/kotlin-server-${KOTLIN_SERVER_VERSION}-linux-amd64.vsix" \
+    /tmp/kotlin-server.vsix
+
+# ROCm on PATH for interactive GPU tools; Engine/native .bazelrc pin /usr/bin/clang
+# for default Bazel builds (same as llvm.dockerfile). Use --config=rocm_offload
+# (and OPENBIMRL_ROCM_OFFLOAD_ARCH) for AMD offload.
 ENV ROCM_PATH=/opt/rocm
 ENV PATH=${ROCM_PATH}/llvm/bin:${PATH}
-ENV CC=${ROCM_PATH}/llvm/bin/clang
-ENV CXX=${ROCM_PATH}/llvm/bin/clang++
+ENV CC=/usr/bin/clang
+ENV CXX=/usr/bin/clang++
 ENV OPENBIMRL_ENABLE_ROCM_OFFLOAD=${ENABLE_ROCM_OFFLOAD}
 ENV OPENBIMRL_ROCM_OFFLOAD_ARCH=${ROCM_OFFLOAD_ARCH}
 ENV OPENBIMRL_USE_PREBUILT_IFCOPENSHELL=ON

@@ -1,0 +1,2 @@
+# Bazel 8+ / 9: ignore node_modules for rules_js (see aspect_rules_js pnpm docs).
+ignore_directories(["**/node_modules"])

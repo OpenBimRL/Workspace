@@ -1,0 +1,111 @@
+"""OpenBimRL monorepo root — Engine (Bazel) + CreatorTool (rules_js) + REST.
+
+Engine-REST is a standalone Bazel module; here it uses the local Engine build via
+local_path_override (see OpenBimRL-Engine-REST/MODULE.bazel for standalone Maven).
+"""
+
+module(
+    name = "openbimrl",
+    version = "0.0.0",
+)
+
+# ---------------------------------------------------------------------------
+# Engine (standalone module; also buildable via cd OpenBimRL-Engine && bazel …)
+# ---------------------------------------------------------------------------
+
+bazel_dep(name = "openbimrl_engine", version = "2026.08.24")
+local_path_override(
+    module_name = "openbimrl_engine",
+    path = "OpenBimRL-Engine",
+)
+
+# Engine-REST (standalone module; local Engine override above replaces its Maven shim)
+bazel_dep(name = "openbimrl_engine_rest", version = "0.7.0-beta")
+local_path_override(
+    module_name = "openbimrl_engine_rest",
+    path = "OpenBimRL-Engine-REST",
+)
+
+# Engine's own local_path_override for native is ignored when Engine is not the
+# root module — re-declare it here (bzlmod only allows overrides in the root).
+bazel_dep(name = "openbimrl_native", version = "0.1.0")
+local_path_override(
+    module_name = "openbimrl_native",
+    path = "OpenBimRL-Engine/src/main/cpp",
+)
+
+# Align with OpenBimRL-Engine/MODULE.bazel
+bazel_dep(name = "rules_kotlin", version = "2.3.20")
+bazel_dep(name = "rules_jvm_external", version = "7.1")
+bazel_dep(name = "rules_java", version = "9.3.0")
+bazel_dep(name = "bazel_skylib", version = "1.8.2")
+bazel_dep(name = "platforms", version = "1.0.0")
+
+# CreatorTool (aspect_rules_js — not legacy rules_nodejs WORKSPACE npm_install)
+bazel_dep(name = "aspect_rules_js", version = "3.4.1")
+bazel_dep(name = "rules_nodejs", version = "6.7.3")
+bazel_dep(name = "bazel_lib", version = "3.7.0")
+
+# Temurin in Docker uses local_jdk (flags try-imported from Engine .bazelrc).
+java_toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
+use_repo(java_toolchains, "local_jdk")
+
+register_toolchains(
+    "@local_jdk//:runtime_toolchain_definition",
+    "@local_jdk//:bootstrap_runtime_toolchain_definition",
+)
+
+# Own the default @maven hub so protobuf's locked install (pulled in via
+# aspect_rules_js) does not pin an incomplete artifact set. Engine's
+# maven.install (non-root) merges into this hub.
+maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
+maven.install(
+    name = "maven",
+    artifacts = [],
+    known_contributing_modules = [
+        "openbimrl_engine",
+        "openbimrl_engine_rest",
+        "protobuf",
+    ],
+    repositories = [
+        "https://repo1.maven.org/maven2",
+        "https://maven-central.storage-download.googleapis.com/maven2",
+        "https://repo.maven.apache.org/maven2",
+        "https://maven.imagej.net/content/repositories/public/",
+        "https://jitpack.io",
+    ],
+    resolve_timeout = 1200,
+)
+use_repo(maven, "maven")
+
+# ---------------------------------------------------------------------------
+# CreatorTool webapp — pnpm via rules_js (package.json under webapp/, not root)
+# ---------------------------------------------------------------------------
+
+node = use_extension("@rules_nodejs//nodejs:extensions.bzl", "node", dev_dependency = True)
+node.toolchain(node_version = "20.18.0")
+use_repo(node, "nodejs_toolchains")
+
+pnpm = use_extension("@aspect_rules_js//npm:extensions.bzl", "pnpm", dev_dependency = True)
+pnpm.pnpm(
+    name = "pnpm",
+    pnpm_version = "9.15.9",
+)
+use_repo(pnpm, "pnpm")
+
+npm = use_extension("@aspect_rules_js//npm:extensions.bzl", "npm", dev_dependency = True)
+npm.npm_translate_lock(
+    name = "npm",
+    bins = {
+        "vite": [
+            "vite=./bin/vite.js",
+        ],
+    },
+    data = [
+        "//OpenBimRL-CreatorTool/webapp:package.json",
+        "//OpenBimRL-CreatorTool/webapp:pnpm-workspace.yaml",
+    ],
+    pnpm_lock = "//OpenBimRL-CreatorTool/webapp:pnpm-lock.yaml",
+    update_pnpm_lock = True,
+)
+use_repo(npm, "npm")

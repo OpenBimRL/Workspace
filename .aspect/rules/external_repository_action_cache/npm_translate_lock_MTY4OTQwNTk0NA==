@@ -1,0 +1,6 @@
+# @generated
+# Input hashes for repository rule npm_translate_lock(name = "npm", pnpm_lock = "@@//OpenBimRL-CreatorTool/webapp:pnpm-lock.yaml").
+# This file should be checked into version control along with the pnpm-lock.yaml file.
+OpenBimRL-CreatorTool/webapp/package.json=-1603224665
+OpenBimRL-CreatorTool/webapp/pnpm-lock.yaml=427553822
+OpenBimRL-CreatorTool/webapp/pnpm-workspace.yaml=-956510607

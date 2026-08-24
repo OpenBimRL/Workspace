@@ -1,0 +1,41 @@
+load("@rules_kotlin//kotlin:core.bzl", "define_kt_toolchain")
+
+package(default_visibility = ["//visibility:public"])
+
+# Satisfies try-imported OpenBimRL-Engine/.bazelrc --extra_toolchains=//:kotlin_toolchain
+define_kt_toolchain(
+    name = "kotlin_toolchain",
+    api_version = "2.1",
+    jvm_target = "17",
+    language_version = "2.1",
+)
+
+alias(
+    name = "help",
+    actual = "@openbimrl_engine//:help",
+)
+
+alias(
+    name = "engine",
+    actual = "@openbimrl_engine//:engine_lib",
+)
+
+alias(
+    name = "webapp_dev",
+    actual = "//OpenBimRL-CreatorTool/webapp:dev",
+)
+
+alias(
+    name = "webapp_build",
+    actual = "//OpenBimRL-CreatorTool/webapp:build",
+)
+
+alias(
+    name = "rest",
+    actual = "@openbimrl_engine_rest//:rest_app",
+)
+
+alias(
+    name = "rest_deploy.jar",
+    actual = "@openbimrl_engine_rest//:rest_deploy.jar",
+)

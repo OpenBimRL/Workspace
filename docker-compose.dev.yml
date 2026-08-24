@@ -3,6 +3,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
+      args:
+        # Host `docker` group GID (NixOS default here: 131). Override via
+        # .devcontainer/devcontainer.json build.args or DOCKER_GID env.
+        DOCKER_GID: ${DOCKER_GID:-131}
     container_name: openbimrl-dev
     working_dir: /workspace/openbimrl
     command: sleep infinity
@@ -10,9 +14,11 @@ services:
       - .:/workspace/openbimrl:cached
       - ./.m2:/home/vscode/.m2
       - openbimrl-node-modules:/workspace/openbimrl/OpenBimRL-CreatorTool/webapp/node_modules
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       USER_NAME: ${USER_NAME:-}
       ACCESS_TOKEN: ${ACCESS_TOKEN:-}
+      DOCKER_HOST: unix:///var/run/docker.sock
     ports:
       - "8000:8000"
       - "8080:8080"
@@ -23,6 +29,7 @@ services:
       - seccomp=unconfined
     group_add:
       - video
+      - docker
 #      - render
     init: true
     tty: true
