@@ -31,6 +31,11 @@ alias(
 )
 
 alias(
+    name = "webapp_build_run",
+    actual = "//OpenBimRL-CreatorTool/webapp:build_run",
+)
+
+alias(
     name = "rest",
     actual = "@openbimrl_engine_rest//:rest_app",
 )
@@ -38,4 +43,30 @@ alias(
 alias(
     name = "rest_deploy.jar",
     actual = "@openbimrl_engine_rest//:rest_deploy.jar",
+)
+
+# Engine tests — use test_suite (alias does not work with `bazel test`).
+test_suite(
+    name = "engine_tests",
+    tests = ["@openbimrl_engine//:engine_tests"],
+)
+
+test_suite(
+    name = "engine_jni_smoke_test",
+    tests = ["@openbimrl_engine//:engine_jni_smoke_test"],
+)
+
+test_suite(
+    name = "pathfinding_minimal_ifc_test",
+    tests = ["@openbimrl_engine//:pathfinding_minimal_ifc_test"],
+)
+
+test_suite(
+    name = "pathfinding_movement_cost_test",
+    tests = ["@openbimrl_engine//:pathfinding_movement_cost_test"],
+)
+
+test_suite(
+    name = "show_distances_test",
+    tests = ["@openbimrl_engine//:show_distances_test"],
 )

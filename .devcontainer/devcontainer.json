@@ -3,18 +3,30 @@
   "dockerComposeFile": [
     "../docker-compose.dev.yml"
   ],
+  // Container log rotation (--log-opt max-size=10m) is configured in docker-compose.dev.yml.
   "service": "openbimrl-dev",
   "workspaceFolder": "/workspace/openbimrl",
   "remoteUser": "vscode",
-  "forwardPorts": [8000, 8080],
+  "forwardPorts": [
+    8000,
+    8080
+  ],
   "build": {
     "args": {
       "DOCKER_GID": "131"
     }
   },
-  "remoteEnv": {
-    "DOCKER_HOST": "unix:///var/run/docker.sock"
+  "features": {
+    "ghcr.io/devcontainers-community/features/bazel:1": {
+      "bazelisk_version": "v1.29.0",
+      "buildifier_version": "v8.5.1"
+    }
   },
+  "remoteEnv": {
+    "DOCKER_HOST": "unix:///var/run/docker.sock",
+    "JAVA_HOME": "/opt/jetbrains-jbr"
+  },
+  "postStartCommand": "ptrace_scope=$(cat /proc/sys/kernel/yama/ptrace_scope 2>/dev/null || echo '?'); if [ \"$ptrace_scope\" != '0' ]; then echo \"WARNING: kernel.yama.ptrace_scope=$ptrace_scope — set boot.kernel.sysctl.\\\"kernel.yama.ptrace_scope\\\" = 0 in ~/nixos_config/configuration.nix and run sudo nixos-rebuild switch.\" >&2; fi",
   "customizations": {
     "vscode": {
       "extensions": [
@@ -22,7 +34,9 @@
         "ms-vscode.vscode-typescript-next",
         "Vue.volar",
         "bazelbuild.vscode-bazel",
-        "/tmp/kotlin-server.vsix"
+        "JetBrains.intellij-server",
+        "llvm-vs-code-extensions.lldb-dap",
+        "llvm-vs-code-extensions.vscode-clangd"
       ]
     }
   }

@@ -1,8 +1,10 @@
 /.m2/
-!/readme.md
+!/README.md
 /*.md
 /*.vsix
 /.cache
 /bazel-*
+/build-*/
 user.bazelrc
 CMakeFiles/
+.env

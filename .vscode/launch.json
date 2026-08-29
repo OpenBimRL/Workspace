@@ -1,0 +1,98 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "intellij_debugger",
+            "name": "Java: attach JDWP :5005",
+            "request": "attach",
+            "hostName": "localhost",
+            "port": 5005
+        },
+        {
+            "type": "lldb-dap",
+            "name": "Native: attach LLDB to JVM",
+            "request": "attach",
+            "attachCommands": [
+                "script import runpy; runpy.run_path('${workspaceFolder}/.vscode/scripts/lldb-attach-jvm.py')"
+            ],
+            "sourceMap": [
+                [
+                    "/proc/self/cwd",
+                    "${workspaceFolder}/OpenBimRL-Engine/src/main/cpp"
+                ],
+                [
+                    "/workspace/openbimrl/OpenBimRL-Engine/src/main/cpp",
+                    "${workspaceFolder}/OpenBimRL-Engine/src/main/cpp"
+                ]
+            ],
+            "initCommands": [
+                "settings set target.process.thread.trace-thread false"
+            ],
+            "presentation": {
+                "hidden": false,
+                "group": "native",
+                "order": 2
+            }
+        },
+        {
+            "type": "lldb-dap",
+            "name": "Native: attach LLDB to JVM (manual PID)",
+            "request": "attach",
+            "pid": "${input:jdwpPid}",
+            "sourceMap": [
+                [
+                    "/proc/self/cwd",
+                    "${workspaceFolder}/OpenBimRL-Engine/src/main/cpp"
+                ],
+                [
+                    "/workspace/openbimrl/OpenBimRL-Engine/src/main/cpp",
+                    "${workspaceFolder}/OpenBimRL-Engine/src/main/cpp"
+                ]
+            ],
+            "initCommands": [
+                "settings set target.process.thread.trace-thread false"
+            ],
+            "presentation": {
+                "hidden": false,
+                "group": "native",
+                "order": 3
+            }
+        },
+        {
+            "type": "intellij_debugger",
+            "name": "Debug: NativeEngineSmokeTest (Java + Native)",
+            "request": "attach",
+            "hostName": "localhost",
+            "port": 5005,
+            "preLaunchTask": "bazel: test engine_jni_smoke_test (wait for debugger)",
+            "postDebugTask": "kill: bazel debug test",
+            "serverReadyAction": {
+                "action": "startDebugging",
+                "name": "Native: attach LLDB to JVM",
+                "pattern": "Listening for transport dt_socket at address: 5005"
+            }
+        },
+        {
+            "type": "intellij_debugger",
+            "name": "Debug: show_distances_test (Java + Native, GPU)",
+            "request": "attach",
+            "hostName": "localhost",
+            "port": 5005,
+            "preLaunchTask": "bazel: test show_distances_test (wait for debugger, GPU)",
+            "postDebugTask": "kill: bazel debug test",
+            "serverReadyAction": {
+                "action": "startDebugging",
+                "name": "Native: attach LLDB to JVM",
+                "pattern": "Listening for transport dt_socket at address: 5005"
+            }
+        },
+        {
+            "type": "intellij_debugger",
+            "name": "Attach to Bazel test (port 5005)",
+            "request": "attach",
+            "hostName": "localhost",
+            "port": 5005,
+            "postDebugTask": "kill: bazel debug test"
+        }
+    ]
+}

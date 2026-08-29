@@ -1,0 +1,22 @@
+# JetBrains "Java and Kotlin by IntelliJ IDEA" / Bazel workspace view.
+# See https://ij.bazel.build/docs/project-views.html
+
+directories:
+  .
+  # Local IFC fixtures with non-ASCII names crash the JVM path encoder (InvalidPathException).
+  -OpenBimRL-Engine/src/test/resources
+  -bazel-bin
+  -bazel-out
+  -bazel-testlogs
+  -bazel-openbimrl
+  -OpenBimRL-CreatorTool/webapp/node_modules
+  -OpenBimRL-CreatorTool/webapp/dist
+
+derive_targets_from_directories: false
+
+targets:
+  //...
+  @openbimrl_engine//...
+
+additional_languages:
+  kotlin

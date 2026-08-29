@@ -1,0 +1,175 @@
+{
+    "version": "2.0.0",
+    "inputs": [
+        {
+            "id": "showDistancesIfc",
+            "type": "pickString",
+            "description": "IFC model (filename under test/resources, or absolute path)",
+            "options": [
+                "2024-10-25_IC6_ASR_Journal_Paper.ifc",
+                "300_IB_BW_EUE Brueckentor_SOM.ifc",
+                "pathfinding_minimal.ifc"
+            ],
+            "default": "2024-10-25_IC6_ASR_Journal_Paper.ifc"
+        },
+        {
+            "id": "showDistancesStartGuid",
+            "type": "promptString",
+            "description": "Start element GUID for distance field",
+            "default": "0Q4YfcC0z0pe5NxBNGF$xb"
+        },
+        {
+            "id": "jdwpPid",
+            "type": "promptString",
+            "description": "JVM PID for native LLDB attach (cat /tmp/openbimrl-jdwp.pid)",
+            "default": "0"
+        }
+    ],
+    "tasks": [
+        {
+            "label": "kill: bazel debug test",
+            "type": "shell",
+            "command": "${workspaceFolder}/.vscode/scripts/kill-bazel-debug.sh",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared",
+                "close": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "bazel: test engine_jni_smoke_test",
+            "type": "shell",
+            "command": "bazel test //:engine_jni_smoke_test --test_output=streamed",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "LD_LIBRARY_PATH": "/opt/ifcopenshell/lib",
+                    "JAVA_HOME": "/opt/jetbrains-jbr"
+                }
+            },
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "bazel: test engine_jni_smoke_test (wait for debugger)",
+            "type": "shell",
+            "command": "${workspaceFolder}/.vscode/scripts/bazel-java-debug-wrapper.sh bazel test //:engine_jni_smoke_test --config=native_dbg --java_debug --test_output=streamed --test_timeout=600",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "LD_LIBRARY_PATH": "/opt/ifcopenshell/lib",
+                    "JAVA_HOME": "/opt/jetbrains-jbr"
+                }
+            },
+            "isBackground": true,
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "problemMatcher": {
+                "owner": "java",
+                "pattern": {
+                    "regexp": "."
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".",
+                    "endsPattern": "Listening for transport dt_socket at address: 5005"
+                }
+            }
+        },
+        {
+            "label": "bazel: test pathfinding_minimal_ifc_test",
+            "type": "shell",
+            "command": "bazel test //:pathfinding_minimal_ifc_test --test_output=streamed --test_timeout=300",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "LD_LIBRARY_PATH": "/opt/ifcopenshell/lib",
+                    "JAVA_HOME": "/opt/jetbrains-jbr"
+                }
+            },
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "bazel: test pathfinding_movement_cost_test",
+            "type": "shell",
+            "command": "bazel test //:pathfinding_movement_cost_test --test_output=streamed --test_timeout=600",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "LD_LIBRARY_PATH": "/opt/ifcopenshell/lib",
+                    "JAVA_HOME": "/opt/jetbrains-jbr"
+                }
+            },
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "bazel: test show_distances_test (GPU)",
+            "type": "shell",
+            "command": "bazel test //:show_distances_test --config=rocm_offload --test_output=streamed --test_timeout=900 --test_env=OPENBIMRL_TEST_IFC='${input:showDistancesIfc}' --test_env=OPENBIMRL_TEST_START_GUID='${input:showDistancesStartGuid}'",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "LD_LIBRARY_PATH": "/opt/ifcopenshell/lib",
+                    "JAVA_HOME": "/opt/jetbrains-jbr"
+                }
+            },
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "bazel: test show_distances_test (wait for debugger, GPU)",
+            "type": "shell",
+            "command": "${workspaceFolder}/.vscode/scripts/bazel-java-debug-wrapper.sh bazel test //:show_distances_test --config=rocm_offload --config=native_dbg --java_debug --test_output=streamed --test_timeout=900 --test_env=OPENBIMRL_TEST_IFC='${input:showDistancesIfc}' --test_env=OPENBIMRL_TEST_START_GUID='${input:showDistancesStartGuid}'",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "LD_LIBRARY_PATH": "/opt/ifcopenshell/lib",
+                    "JAVA_HOME": "/opt/jetbrains-jbr"
+                }
+            },
+            "isBackground": true,
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "problemMatcher": {
+                "owner": "java",
+                "pattern": {
+                    "regexp": "."
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".",
+                    "endsPattern": "Listening for transport dt_socket at address: 5005"
+                }
+            }
+        }
+    ]
+}

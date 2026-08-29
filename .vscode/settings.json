@@ -3,5 +3,30 @@
     "files.associations": {
         "*.openbimrl": "xml"
     },
-    "java.configuration.updateBuildConfiguration": "automatic"
+    // Bazel monorepo — do not run Maven/m2e on pom.xml under bazel symlinks (OpenBimRL-Schema JAXB).
+    "java.import.maven.enabled": false,
+    "java.import.gradle.enabled": false,
+    "java.configuration.updateBuildConfiguration": "disabled",
+    "java.import.exclusions": [
+        "**/bazel-bin/**",
+        "**/bazel-out/**",
+        "**/bazel-testlogs/**",
+        "**/bazel-openbimrl/**",
+        "**/external/**",
+        "**/.cache/bazel/**"
+    ],
+    "files.watcherExclude": {
+        "**/bazel-bin/**": true,
+        "**/bazel-out/**": true,
+        "**/bazel-testlogs/**": true,
+        "**/bazel-openbimrl/**": true
+    },
+    "search.exclude": {
+        "**/bazel-bin/**": true,
+        "**/bazel-out/**": true,
+        "**/bazel-testlogs/**": true,
+        "**/bazel-openbimrl/**": true
+    },
+    "intellij.bazel.projectview": ".bazelproject",
+    "lldb-dap.executable-path": "/usr/bin/lldb-dap"
 }

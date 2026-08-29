@@ -7,6 +7,8 @@ services:
         # Host `docker` group GID (NixOS default here: 131). Override via
         # .devcontainer/devcontainer.json build.args or DOCKER_GID env.
         DOCKER_GID: ${DOCKER_GID:-131}
+        # RUB campus mirror by default; set UBUNTU_APT_MIRROR= (empty) to use archive.ubuntu.com.
+        UBUNTU_APT_MIRROR: ${UBUNTU_APT_MIRROR-http://linux.rub.de/ubuntu/}
     container_name: openbimrl-dev
     working_dir: /workspace/openbimrl
     command: sleep infinity
@@ -19,6 +21,7 @@ services:
       USER_NAME: ${USER_NAME:-}
       ACCESS_TOKEN: ${ACCESS_TOKEN:-}
       DOCKER_HOST: unix:///var/run/docker.sock
+      JAVA_HOME: /opt/jetbrains-jbr
     ports:
       - "8000:8000"
       - "8080:8080"
@@ -27,12 +30,20 @@ services:
       - /dev/dri:/dev/dri
     security_opt:
       - seccomp=unconfined
+    # LLDB attach: SYS_PTRACE is enough in-container. yama.ptrace_scope is host-global
+    # (not namespaced) — set on the host, e.g. sudo sysctl kernel.yama.ptrace_scope=0
+    cap_add:
+      - SYS_PTRACE
     group_add:
       - video
       - docker
 #      - render
     init: true
     tty: true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
 
 volumes:
   openbimrl-node-modules:
