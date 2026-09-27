@@ -13,7 +13,7 @@ module(
 # Engine (standalone module; also buildable via cd OpenBimRL-Engine && bazel …)
 # ---------------------------------------------------------------------------
 
-bazel_dep(name = "openbimrl_engine", version = "2026.09.28")
+bazel_dep(name = "openbimrl_engine", version = "2026.09.27")
 local_path_override(
     module_name = "openbimrl_engine",
     path = "OpenBimRL-Engine",
