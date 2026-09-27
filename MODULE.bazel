@@ -13,14 +13,14 @@ module(
 # Engine (standalone module; also buildable via cd OpenBimRL-Engine && bazel …)
 # ---------------------------------------------------------------------------
 
-bazel_dep(name = "openbimrl_engine", version = "2026.08.29")
+bazel_dep(name = "openbimrl_engine", version = "2026.09.28")
 local_path_override(
     module_name = "openbimrl_engine",
     path = "OpenBimRL-Engine",
 )
 
 # Engine-REST (standalone module; local Engine override above replaces its Maven shim)
-bazel_dep(name = "openbimrl_engine_rest", version = "0.7.0-beta")
+bazel_dep(name = "openbimrl_engine_rest", version = "0.9.0-beta")
 local_path_override(
     module_name = "openbimrl_engine_rest",
     path = "OpenBimRL-Engine-REST",
@@ -32,6 +32,13 @@ bazel_dep(name = "openbimrl_native", version = "0.1.0")
 local_path_override(
     module_name = "openbimrl_native",
     path = "OpenBimRL-Engine/src/main/cpp",
+)
+
+# Schema (git submodule) — same override rule as native.
+bazel_dep(name = "openbimrl_schema", version = "2026.09.28")
+local_path_override(
+    module_name = "openbimrl_schema",
+    path = "OpenBimRL-Schema",
 )
 
 # Align with OpenBimRL-Engine/MODULE.bazel

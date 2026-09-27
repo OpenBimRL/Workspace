@@ -1,5 +1,6 @@
 load("//.bazelbsp/common:common.bzl", "intellij_common")
-load(":provider.bzl", "intellij_provider")
+load("//.bazelbsp/common:provider.bzl", "intellij_provider")
+load(":module.bzl", "intellij_module")
 # Copyright 2026 JetBrains s.r.o.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,15 +16,27 @@ load(":provider.bzl", "intellij_provider")
 # limitations under the License.
 
 
-def _aspect_impl(target, ctx):
-    for it in intellij_provider.PROTO_MODULES:
-        contributor = intellij_provider.get(target, it)
-        if contributor:
-            return [intellij_provider.create(ctx = ctx, provider = intellij_provider.ProtoInfo, value = contributor.value)]
-    return [intellij_provider.ProtoInfo(present = False)]
+_PROTO_MODULES = [
+    intellij_provider.LegacyRulesProtoInfo,
+    intellij_provider.ProtobufInfo,
+]
 
-intellij_proto_info_aspect = intellij_common.aspect(
-    implementation = _aspect_impl,
-    provides = [intellij_provider.ProtoInfo],
-    required_aspect_providers = [[it] for it in intellij_provider.PROTO_MODULES],
+def _implementation(target, ctx, attr):
+    for it in _PROTO_MODULES:
+        contributor = intellij_module.lookup_self(attr, it)
+        if contributor:
+            return intellij_module.result(contributor.value)
+
+    return None
+
+_aspect = intellij_module.aspect(
+    provider = intellij_provider.ProtoInfo,
+    implementation = _implementation,
+    field = "protobuf_target_info",
+)
+
+module = intellij_module.define(
+    file = "proto_info",
+    aspect = _aspect,
+    rulesets = ["PROTO", "LEGACY_RULES_PROTO"],
 )

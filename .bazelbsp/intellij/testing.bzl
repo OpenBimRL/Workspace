@@ -1,17 +1,5 @@
 load("//.bazelbsp/common:platform.bzl", "platform")
-load("//.bazelbsp/modules:cc_info.bzl", "intellij_cc_info_aspect")
-load("//.bazelbsp/modules:go_info.bzl", "intellij_go_info_aspect")
-load("//.bazelbsp/modules:java_common_info.bzl", "intellij_java_common_info_aspect")
-load("//.bazelbsp/modules:java_info.bzl", "intellij_java_info_aspect")
-load("//.bazelbsp/modules:jvm_info.bzl", "intellij_jvm_info_aspect")
-load("//.bazelbsp/modules:kotlin_info.bzl", "intellij_kotlin_info_aspect")
-load("//.bazelbsp/modules:proto_info.bzl", "intellij_proto_info_aspect")
-load("//.bazelbsp/modules:protobuf_info.bzl", "intellij_protobuf_info_aspect")
-load("//.bazelbsp/modules:py_info.bzl", "intellij_py_info_aspect")
-load("//.bazelbsp/modules:python_info.bzl", "intellij_python_info_aspect")
-load("//.bazelbsp/modules:scala_info.bzl", "intellij_scala_info_aspect")
-load("//.bazelbsp/modules:xcode_info.bzl", "intellij_xcode_info_aspect")
-load(":aspect.bzl", "intellij_info_aspect")
+load("//.bazelbsp/config:aspect.bzl", "intellij_aspect")
 # Copyright 2026 JetBrains s.r.o.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,68 +15,22 @@ load(":aspect.bzl", "intellij_info_aspect")
 # limitations under the License.
 
 
-# Aspects are grouped per language so that a target only runs the aspects for
-# its own language. This matters because some aspects (e.g. go, scala) force
-# resolution of their toolchain; keeping them off unrelated deps means a consumer
-# only needs declare the toolchains for the languages they test.
-_LANGUAGE_ASPECTS = {
-    "cc": [
-        intellij_xcode_info_aspect,
-        intellij_cc_info_aspect,
-        intellij_info_aspect,
-    ],
-    "go": [
-        intellij_go_info_aspect,
-        intellij_info_aspect,
-    ],
-    "java": [
-        intellij_java_info_aspect,
-        intellij_jvm_info_aspect,
-        intellij_java_common_info_aspect,
-        intellij_info_aspect,
-    ],
-    "kotlin": [
-        intellij_kotlin_info_aspect,
-        intellij_jvm_info_aspect,
-        intellij_java_common_info_aspect,
-        intellij_info_aspect,
-    ],
-    "proto": [
-        intellij_proto_info_aspect,
-        intellij_protobuf_info_aspect,
-        intellij_info_aspect,
-    ],
-    "python": [
-        intellij_py_info_aspect,
-        intellij_python_info_aspect,
-        intellij_info_aspect,
-    ],
-    "scala": [
-        intellij_scala_info_aspect,
-        intellij_jvm_info_aspect,
-        intellij_java_common_info_aspect,
-        intellij_info_aspect,
-    ],
-}
-
 # To ensure that targets visited under different aspect configurations created by
 # this rule do not cause write conflicts this transition enforces a unique
-# bazel configuration for each aspect configuration.
-def _create_language_transition(language):
-    def _impl(_settings, _attr):
-        return {"//command_line_option:platform_suffix": "intellij_aspect_" + language}
+# bazel configuration for this aspect configuration.
+def _aspect_transition_impl(_settings, _attr):
+    return {"//command_line_option:platform_suffix": "intellij_aspect"}
 
-    return transition(
-        implementation = _impl,
-        inputs = [],
-        outputs = ["//command_line_option:platform_suffix"],
-    )
+_aspect_transition = transition(
+    implementation = _aspect_transition_impl,
+    inputs = [],
+    outputs = ["//command_line_option:platform_suffix"],
+)
 
 def _intellij_aspect_build_impl(ctx):
     info_files = [
         getattr(dep[OutputGroupInfo], "intellij-info", depset())
-        for language in _LANGUAGE_ASPECTS
-        for dep in getattr(ctx.attr, language)
+        for dep in ctx.attr.deps
     ]
 
     return [DefaultInfo(files = depset(transitive = info_files))]
@@ -96,12 +38,11 @@ def _intellij_aspect_build_impl(ctx):
 _intellij_aspect_build = rule(
     implementation = _intellij_aspect_build_impl,
     attrs = {
-        language: attr.label_list(
-            aspects = aspects,
-            doc = "%s targets to apply the IntelliJ aspect to." % language,
-            cfg = _create_language_transition(language),
-        )
-        for language, aspects in _LANGUAGE_ASPECTS.items()
+        "deps": attr.label_list(
+            aspects = [intellij_aspect],
+            doc = "The targets to apply the IntelliJ aspect to.",
+            cfg = _aspect_transition,
+        ),
     },
 )
 
@@ -125,17 +66,7 @@ _build_test = rule(
     attrs = {"targets": attr.label_list(mandatory = True)},
 )
 
-def intellij_aspect_test(
-        name,
-        cc = [],
-        go = [],
-        java = [],
-        kotlin = [],
-        proto = [],
-        python = [],
-        scala = [],
-        tags = [],
-        **kwargs):
+def intellij_aspect_test(name, deps, tags = [], **kwargs):
     """Asserts the IntelliJ aspect builds successfully over the given deps.
 
     Applies the aspect to each language's deps and wraps the result in a build
@@ -145,26 +76,14 @@ def intellij_aspect_test(
 
     Args:
         name: Name of the test target.
-        cc: C/C++ targets to apply the aspect to.
-        go: go targets to apply the aspect to.
-        java: java targets to apply the aspect to.
-        kotlin: kotlin targets to apply the aspect to.
-        proto: proto targets to apply the aspect to.
-        python: python targets to apply the aspect to.
-        scala: scala targets to apply the aspect to.
+        deps: List of targets to apply the aspect to.
         **kwargs: Passed through to the underlying test (e.g. tags, visibility, size).
     """
     build = "%s_build" % name
 
     _intellij_aspect_build(
         name = build,
-        cc = cc,
-        go = go,
-        java = java,
-        kotlin = kotlin,
-        proto = proto,
-        python = python,
-        scala = scala,
+        deps = deps,
         testonly = True,
         tags = ["manual", "no-ide"],
     )

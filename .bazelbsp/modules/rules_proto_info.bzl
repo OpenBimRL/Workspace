@@ -1,8 +1,9 @@
 load("@rules_proto//proto:defs.bzl", "ProtoInfo", "proto_common")
 load("//.bazelbsp/common:artifact_location.bzl", "artifact_location")
 load("//.bazelbsp/common:common.bzl", "intellij_common")
+load("//.bazelbsp/common:provider.bzl", "intellij_provider")
 load("//.bazelbsp/common:third_party/proto_common.bzl", "fallback_get_import_path")
-load(":provider.bzl", "intellij_provider")
+load(":module.bzl", "intellij_module")
 # Copyright 2026 JetBrains s.r.o.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -33,20 +34,23 @@ def _source_mappings(target):
         mappings.append(proto)
     return mappings
 
-def _aspect_impl(target, ctx):
+def _implementation(target, ctx, attr):
     if not ProtoInfo in target:
-        return [intellij_provider.LegacyRulesProtoInfo(present = False)]
-    return [
-        intellij_provider.create(
-            ctx = ctx,
-            provider = intellij_provider.LegacyRulesProtoInfo,
-            value = intellij_common.struct(
-                source_mappings = _source_mappings(target),
-            ),
-        ),
-    ]
+        return None
 
-intellij_rules_proto_info_aspect = intellij_common.aspect(
-    implementation = _aspect_impl,
-    provides = [intellij_provider.LegacyRulesProtoInfo],
+    return intellij_module.result(
+        intellij_common.struct(
+            source_mappings = _source_mappings(target),
+        ),
+    )
+
+_aspect = intellij_module.aspect(
+    provider = intellij_provider.LegacyRulesProtoInfo,
+    implementation = _implementation,
+)
+
+module = intellij_module.define(
+    file = "rules_proto_info",
+    aspect = _aspect,
+    rulesets = ["LEGACY_RULES_PROTO"],
 )

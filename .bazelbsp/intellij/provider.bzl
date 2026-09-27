@@ -1,4 +1,6 @@
 load("//.bazelbsp/common:common.bzl", "intellij_common")
+load("//.bazelbsp/common:output_groups.bzl", "intellij_output_groups")
+load("//.bazelbsp/common:provider.bzl", "intellij_provider")
 # Copyright 2026 JetBrains s.r.o.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,17 +16,6 @@ load("//.bazelbsp/common:common.bzl", "intellij_common")
 # limitations under the License.
 
 
-IntelliJInfo = provider(
-    doc = "Aggregation provider for IntelliJ aspect outputs and dependency edges.",
-    fields = {
-        "key": "TargetKey - The key to uniquly identify this target taking the configuration and all aspect ids into considadrtion.",
-        "outputs": "dict[str, depset[File]] - Output groups emitted by this target (e.g., intellij-info).",
-        "dependencies": "dict[int, depset[Target]] - Direct dependencies grouped by dependency type (see intellij_deps constants).",
-    },
-)
-
-_IDE_INFO_FILE_OUTPUT_GROUP = "intellij-info"
-
 def _create():
     """Creates a new builder. Optimisation for creating more efficient depsets."""
     return struct(outputs = {}, dependencies = {}, aspect_ids = {})
@@ -32,28 +23,35 @@ def _create():
 def _append_depset(dst, src):
     """Appends every depset from the source dict[depset] to the destination dict[list[depset]]."""
     for key in list(src):
-        if key in dst:
-            dst[key].append(src[key])
-        else:
-            dst[key] = [src[key]]
+        if src[key]:
+            if key in dst:
+                dst[key].append(src[key])
+            else:
+                dst[key] = [src[key]]
 
 def _append(builder, src):
-    """Appends all data from the source to the builder. Source must be either an IntellijInfo provider or a module provider."""
+    """Appends all data from the source to the builder. Source must be either an IntellijInfo provider or a module result struct."""
     _append_depset(builder.outputs, src.outputs)
     _append_depset(builder.dependencies, src.dependencies)
 
     # only the module provider exposes the aspect ids
     builder.aspect_ids.update({id: True for id in getattr(src, "aspect_ids", [])})
 
+def _append_outputs(builder, src):
+    """Appends only the outputs of the sources to the builder. Source must be either an IntellijInfo provider or a module result struct."""
+    _append_depset(builder.outputs, src.outputs)
+
 def _append_ide_infos(builder, files):
     """Appends a list intellij ide info files."""
     if not files:
         return
 
-    _append_depset(builder.outputs, {_IDE_INFO_FILE_OUTPUT_GROUP: depset(files)})
+    _append_depset(builder.outputs, {intellij_output_groups.INFO: depset(files)})
 
 def _append_dependencies(builder, group, deps):
     """Appends all dependencies to the specified dependency group."""
+    if deps == None:
+        return
     _append_depset(builder.dependencies, {group: deps})
 
 def _append_output(builder, group, files):
@@ -64,7 +62,7 @@ def _append_output(builder, group, files):
 def _build_depset(src):
     """Builds one dict[depset] from the source dict[list[depset]]."""
     return {
-        key: depset(transitive = value)
+        key: intellij_common.depset(transitive = value)
         for key, value in src.items()
         if value
     }
@@ -74,17 +72,23 @@ def _build_target_key(builder, target, ctx):
     aspect_ids = {id: True for id in ctx.aspect_ids} | builder.aspect_ids
     return intellij_common.target_key(target, ctx, aspect_ids.keys())
 
-def _build(builder, target, ctx):
+def _build(builder, target, ctx, results):
     """Builds a new IntelliJInfo provider."""
-    return IntelliJInfo(
+
+    # for performance reasons only retian the internal values
+    internal_results = {key: result.internal_value for (key, result) in results.items()}
+
+    return intellij_provider.IntelliJInfo(
         key = _build_target_key(builder, target, ctx),
         outputs = _build_depset(builder.outputs),
         dependencies = _build_depset(builder.dependencies),
+        internal_results = internal_results,
     )
 
 intellij_info_builder = struct(
     create = _create,
     append = _append,
+    append_outputs = _append_outputs,
     append_output = _append_output,
     append_ide_infos = _append_ide_infos,
     append_dependencies = _append_dependencies,

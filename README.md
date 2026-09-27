@@ -9,6 +9,7 @@ Bazel workspace for Engine (JNI + Kotlin), Engine-REST (Spring Boot), and Creato
 | `OpenBimRL-Engine/` | Standalone Bazel module — Kotlin/JVM rule engine + JNI native (`libopenbimrl_jni.so`) |
 | `OpenBimRL-Engine-REST/` | Standalone Bazel module — Spring Boot REST API; from this root uses local Engine via `local_path_override` |
 | `OpenBimRL-CreatorTool/webapp/` | Vue/Vite UI — built with `aspect_rules_js` + pnpm |
+| `OpenBimRL-Schema/` | Git submodule — XSD + JAXB model; Engine uses via `local_path_override` |
 
 Root `MODULE.bazel` wires Engine, REST, and native with `local_path_override`. Root `BUILD.bazel` exposes short aliases (`//:engine`, `//:rest`, `//:webapp_*`).
 
@@ -34,7 +35,8 @@ bazel build //:engine
 
 # CreatorTool webapp
 bazel build //:webapp_build
-bazel run //:webapp_dev          # Vite on 0.0.0.0:8000
+bazel run //:webapp_dev          # Vite on 0.0.0.0:8000 (one-shot sandbox sync)
+# After source edits: restart the command above, or use ibazel / pnpm (see below)
 
 # REST (Kotlin 21 toolchain — always pass --config=rest from root)
 bazel build //:rest --config=rest
@@ -63,6 +65,18 @@ Root aliases → actual targets:
 | `//:webapp_build` | `//OpenBimRL-CreatorTool/webapp:build` |
 | `//:rest` | `@openbimrl_engine_rest//:rest_app` |
 | `//:rest_deploy.jar` | `@openbimrl_engine_rest//:rest_deploy.jar` |
+
+### Webapp live reload (`//:webapp_dev`)
+
+`bazel run //:webapp_dev` uses `js_run_devserver`: it **copies** webapp sources once into a temp sandbox (`/tmp/js_run_devserver-…`) and runs Vite **there**. A browser hard-refresh only reloads those sandbox files — edits under `OpenBimRL-CreatorTool/webapp/src/` are invisible until the sandbox is re-synced.
+
+| Goal | Command |
+|------|---------|
+| Pick up edits (Bazel) | Stop and re-run `bazel run //:webapp_dev` |
+| Auto re-sync on change | `ibazel run //OpenBimRL-CreatorTool/webapp:dev` (use the real target — **not** the `//:webapp_dev` alias; [ibazel + aliases](https://github.com/bazelbuild/bazel-watcher/issues/100)) |
+| Serve workspace tree directly | `cd OpenBimRL-CreatorTool/webapp && pnpm install && pnpm run dev` |
+
+`ibazel`: install [bazel-watcher](https://github.com/bazelbuild/bazel-watcher) or `npx @bazel/ibazel run //OpenBimRL-CreatorTool/webapp:dev`. After a re-sync, a full page reload (or Vite’s own reload) shows new code; HMR is optional and unrelated to the sandbox staleness.
 
 ### Webapp lockfile
 

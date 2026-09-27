@@ -1,6 +1,7 @@
 load("//.bazelbsp/common:artifact_location.bzl", "artifact_location")
 load("//.bazelbsp/common:common.bzl", "intellij_common")
-load(":provider.bzl", "intellij_provider")
+load("//.bazelbsp/common:provider.bzl", "intellij_provider")
+load(":module.bzl", "intellij_module")
 # Copyright 2026 JetBrains s.r.o.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,27 +17,31 @@ load(":provider.bzl", "intellij_provider")
 # limitations under the License.
 
 
-def _aspect_impl(target, ctx):
+def _implementation(target, ctx, attr):
     # targets built under exec configuration are most likely used as local tool
     if intellij_common.is_exec_configuration(ctx):
-        return [intellij_provider.RunInfo(present = False)]
+        return None
 
     files_to_run = target[DefaultInfo].files_to_run
 
     # files_to_run.executable is None for non-executable targets
     if not files_to_run or getattr(files_to_run, "executable", None) == None:
-        return [intellij_provider.RunInfo(present = False)]
+        return None
 
-    return [intellij_provider.create(
-        ctx = ctx,
-        provider = intellij_provider.RunInfo,
-        value = intellij_common.struct(
+    return intellij_module.result(
+        intellij_common.struct(
             executable_file = artifact_location.from_file(files_to_run.executable),
             runfiles_manifest = artifact_location.from_file(getattr(files_to_run, "runfiles_manifest", None)),
         ),
-    )]
+    )
 
-intellij_run_info_aspect = intellij_common.aspect(
-    implementation = _aspect_impl,
-    provides = [intellij_provider.RunInfo],
+_aspect = intellij_module.aspect(
+    provider = intellij_provider.RunInfo,
+    implementation = _implementation,
+    field = "executable_info",
+)
+
+module = intellij_module.define(
+    file = "run_info",
+    aspect = _aspect,
 )

@@ -113,6 +113,7 @@ RUN if [ -n "${UBUNTU_APT_MIRROR}" ]; then \
         libmpfr-dev libboost-all-dev libhdf5-dev libgmp-dev libxml2-dev libeigen3-dev \
         nodejs npm \
         lldb-18 \
+    && npm install -g pnpm@9.15.9 \
     && curl -fsSL "https://cache-redirector.jetbrains.com/intellij-jbr/jbrsdk-${JBR_VERSION}-linux-x64-${JBR_BUILD}.tar.gz" \
         | tar -xz -C /opt \
     && mv /opt/jbrsdk-* /opt/jetbrains-jbr-21 \
@@ -136,6 +137,7 @@ RUN if [ -n "${UBUNTU_APT_MIRROR}" ]; then \
     && rm -rf /var/lib/apt/lists/*
 
 # Kotlin LS: installed via devcontainer.json (JetBrains.kotlin-server from Marketplace). Engine/native .bazelrc pin /usr/bin/clang
+# CreatorTool webapp uses pnpm@9.15.9 (see OpenBimRL-CreatorTool/webapp/package.json packageManager).
 # for default Bazel builds (same as llvm.dockerfile). Use --config=rocm_offload
 # (and OPENBIMRL_ROCM_OFFLOAD_ARCH) for AMD offload.
 ENV ROCM_PATH=/opt/rocm

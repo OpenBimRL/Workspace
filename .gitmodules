@@ -7,3 +7,6 @@
 [submodule "OpenBimRL-Engine-REST"]
 	path = OpenBimRL-Engine-REST
 	url = https://github.com/OpenBimRL/OpenBimRL-Engine-REST.git
+[submodule "OpenBimRL-Schema"]
+	path = OpenBimRL-Schema
+	url = https://github.com/OpenBimRL/OpenBimRL-Schema.git

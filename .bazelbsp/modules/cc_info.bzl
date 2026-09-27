@@ -4,8 +4,9 @@ load("//.bazelbsp/common:artifact_location.bzl", "artifact_location")
 load("//.bazelbsp/common:common.bzl", "intellij_common")
 load("//.bazelbsp/common:dependencies.bzl", "intellij_deps")
 load("//.bazelbsp/common:make_variables.bzl", "expand_make_variables")
-load(":cc_toolchain_info.bzl", "intellij_cc_toolchain_info_aspect")
-load(":provider.bzl", "intellij_provider")
+load("//.bazelbsp/common:output_groups.bzl", "intellij_output_groups")
+load("//.bazelbsp/common:provider.bzl", "intellij_provider")
+load(":module.bzl", "intellij_module")
 # Copyright 2025 The Bazel Authors.
 # Copyright 2026 JetBrains s.r.o.
 #
@@ -75,16 +76,13 @@ def _collect_compilation_context(ctx, target):
         system_includes = compilation_context.system_includes.to_list() + external_includes,
     )
 
-def _contains_toolchain(deps):
-    for it in deps.to_list():
-        if intellij_provider.get(it, intellij_provider.CcToolchainInfo):
-            return True
-
-    return False
-
 def _aspect_guard(target, ctx):
     """Returns true if the aspect should be applied to the current target."""
     if CcInfo not in target:
+        return False
+
+    # ignore cc_proto_library, attach to proto_library with aspect attached instead
+    if ctx.rule.kind == "cc_proto_library":
         return False
 
     # go targets always provide CcInfo, usually it's empty and even if it isn't we don't handle it
@@ -97,48 +95,36 @@ def _aspect_guard(target, ctx):
 
     return True
 
-def _aspect_impl(target, ctx):
+def _implementation(target, ctx, attr):
     if not _aspect_guard(target, ctx):
-        return [intellij_provider.CcInfo(present = False)]
+        return None
 
     resolve_files = target[CcInfo].compilation_context.headers
 
-    dependencies = intellij_deps.collect(
-        ctx,
-        attributes = COMPILE_TIME_DEPS,
-        toolchain_types = [CC_TOOLCHAIN_TYPE],
-    )
-
-    toolchains = intellij_deps.find_toolchains(ctx, CC_TOOLCHAIN_TYPE)
-    add_fallback_toolchain = not toolchains and not _contains_toolchain(dependencies)
-
-    return [intellij_provider.create(
-        ctx = ctx,
-        provider = intellij_provider.CcInfo,
+    return intellij_module.result(
         outputs = {
-            intellij_provider.BUILD_OUTPUT: resolve_files,
-            intellij_provider.SYNC_OUTPUT: resolve_files,
+            intellij_output_groups.BUILD: resolve_files,
+            intellij_output_groups.SYNC: resolve_files,
         },
         value = intellij_common.struct(
             rule_context = _collect_rule_context(ctx),
             compilation_context = _collect_compilation_context(ctx, target),
         ),
         dependencies = {
-            intellij_deps.COMPILE_TIME: dependencies,
-            intellij_deps.TOOLCHAIN: depset([ctx.attr._cc_toolchain]) if add_fallback_toolchain else depset(),
+            intellij_deps.COMPILE_TIME: intellij_deps.collect(ctx, COMPILE_TIME_DEPS),
         },
-        toolchains = toolchains,
-    )]
+    )
 
-intellij_cc_info_aspect = intellij_common.aspect(
-    implementation = _aspect_impl,
-    provides = [intellij_provider.CcInfo],
-    requires = [intellij_cc_toolchain_info_aspect],
-    required_aspect_providers = [[CcInfo], [intellij_provider.XcodeToolchainInfo]],
-    toolchains_aspects = [str(CC_TOOLCHAIN_TYPE)],
-    attrs = {
-        # Used to resolve the cc toolchain for targets whose rule does not declare it (e.g.
-        # proto_library / cc_proto_library, which get their CcInfo from protobuf's cc_proto_aspect).
-        "_cc_toolchain": attr.label(default = Label("@rules_cc//cc:optional_current_cc_toolchain")),
-    },
+_aspect = intellij_module.aspect(
+    provider = intellij_provider.CcInfo,
+    implementation = _implementation,
+    field = "c_ide_info",
+)
+
+module = intellij_module.define(
+    file = "cc_info",
+    aspect = _aspect,
+    toolchains = [CC_TOOLCHAIN_TYPE],
+    aspect_providers = [CcInfo],
+    rulesets = ["CC"],
 )

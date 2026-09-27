@@ -8,3 +8,6 @@
 user.bazelrc
 CMakeFiles/
 .env
+# Local tooling (pnpm bootstrap)
+.tools/
+.pnpm-store/
