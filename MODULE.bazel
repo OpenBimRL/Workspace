@@ -13,14 +13,14 @@ module(
 # Engine (standalone module; also buildable via cd OpenBimRL-Engine && bazel …)
 # ---------------------------------------------------------------------------
 
-bazel_dep(name = "openbimrl_engine", version = "2026.10.13")
+bazel_dep(name = "openbimrl_engine", version = "2026.10.14")
 local_path_override(
     module_name = "openbimrl_engine",
     path = "OpenBimRL-Engine",
 )
 
 # Engine-REST (standalone module; local Engine override above replaces its Maven shim)
-bazel_dep(name = "openbimrl_engine_rest", version = "0.9.1-beta")
+bazel_dep(name = "openbimrl_engine_rest", version = "0.9.2-beta")
 local_path_override(
     module_name = "openbimrl_engine_rest",
     path = "OpenBimRL-Engine-REST",
